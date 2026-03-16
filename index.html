@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Adgang" />
-  <title>ESP32 Adgangsstyring</title>
+  <meta name="apple-mobile-web-app-title" content="Adgangs Control" />
+  <title>Adgangs Control</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -129,7 +129,7 @@
     <div class="header-top">
       <div>
         <div class="header-label">Adgangsstyring</div>
-        <div class="header-title">ESP32 Kontrol</div>
+        <div class="header-title" id="appTitle">Adgangs Control</div>
       </div>
       <div class="header-icon">📡</div>
     </div>
@@ -188,6 +188,12 @@
 
   <!-- INDSTILLINGER -->
   <div id="tab-indstil" class="content hidden">
+    <div class="section-label">App navn</div>
+    <div style="display:flex;gap:8px;margin-bottom:24px">
+      <input type="text" id="appName" placeholder="Navn vist i appen" maxlength="30" style="flex:1" />
+      <button class="btn btn-green" onclick="sendAppName()">Send</button>
+    </div>
+
     <div class="section-label">Skift PIN på enheden</div>
     <div style="display:flex;gap:8px;margin-bottom:24px">
       <input type="text" id="newPin" placeholder="Ny PIN (min. 4 tegn)" maxlength="10" style="flex:1" />
@@ -219,14 +225,20 @@
   function save(key, val) { try { localStorage.setItem(key, val); } catch(e){} }
   function load(key, def) { try { return localStorage.getItem(key) || def; } catch(e){ return def; } }
 
-  // Indlæs gemt nummer og PIN
-  document.getElementById('deviceNumber').value = load('number', '+4500000000');
-  document.getElementById('pinCode').value       = load('pin',    '1234');
-  document.getElementById('welcomeMsg').value    = load('welcome','Velkommen');
+  // Indlæs gemt nummer, PIN og appnavn
+  document.getElementById('deviceNumber').value = load('number',  '+4500000000');
+  document.getElementById('pinCode').value       = load('pin',     '1234');
+  document.getElementById('welcomeMsg').value    = load('welcome', 'Velkommen');
+  document.getElementById('appName').value       = load('appname', 'Adgangs Control');
+  document.getElementById('appTitle').textContent = load('appname', 'Adgangs Control');
 
-  document.getElementById('deviceNumber').addEventListener('input', e => save('number', e.target.value));
-  document.getElementById('pinCode').addEventListener('input',       e => save('pin',    e.target.value));
-  document.getElementById('welcomeMsg').addEventListener('input',    e => save('welcome',e.target.value));
+  document.getElementById('deviceNumber').addEventListener('input', e => save('number',  e.target.value));
+  document.getElementById('pinCode').addEventListener('input',       e => save('pin',     e.target.value));
+  document.getElementById('welcomeMsg').addEventListener('input',    e => save('welcome', e.target.value));
+  document.getElementById('appName').addEventListener('input', e => {
+    save('appname', e.target.value);
+    document.getElementById('appTitle').textContent = e.target.value;
+  });
 
   // Dagsskema data
   const schedule = DAYS.map((d, i) => ({
@@ -349,8 +361,9 @@
     } else if (d.openMode === 1) {
       cmd(`AABEN ${d.day} ${d.openFrom} ${d.openTo}`);
     } else {
+      // Mode 2: send AABEN først, vent 8 sekunder, send derefter OPKALD
       cmd(`AABEN ${d.day} ${d.openFrom} ${d.openTo}`);
-      setTimeout(() => cmd(`OPKALD ${d.day} ${d.callFrom} ${d.callTo}`), 3500);
+      setTimeout(() => cmd(`OPKALD ${d.day} ${d.callFrom} ${d.callTo}`), 8000);
     }
   }
 
@@ -364,6 +377,15 @@
     sendDay(sendAllIndex);
     sendAllIndex++;
     if (sendAllIndex < 7) setTimeout(sendNextDay, 3500);
+  }
+
+  function sendAppName() {
+    const name = document.getElementById('appName').value.trim();
+    if (name.length === 0) { alert('Skriv et navn'); return; }
+    cmd(`NAVN ${name}`);
+    document.getElementById('appTitle').textContent = name;
+    save('appname', name);
+    showToast('📤 SMS app åbner...');
   }
 
   function sendNewPin() {
